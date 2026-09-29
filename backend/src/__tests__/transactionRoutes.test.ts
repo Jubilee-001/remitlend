@@ -287,4 +287,27 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       },
     );
   });
+
+  describe('limit clamping', () => {
+    it('clamps limit to MAX_LIMIT (500)', async () => {
+      table = Array.from({ length: 505 }, (_, i) => txRow(505 - i, USER_A));
+
+      const res = await request(app)
+        .get('/api/transactions/me?limit=10000')
+        .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.page_info).toEqual(
+        expect.objectContaining({
+          limit: 500,
+          count: 500,
+          has_next: true,
+        }),
+      );
+      expect(res.body.data).toHaveLength(500);
+      expect(res.body.data[0].id).toBe(505);
+      // Controller probes limit + 1 rows, so the clamp is visible in the query.
+      expect(lastParams[1]).toBe(501);
+    });
+  });
 });
