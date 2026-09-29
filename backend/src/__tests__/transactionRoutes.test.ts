@@ -149,4 +149,50 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       expect(res.body.success).toBe(true);
     });
   });
+
+  describe('default-limit first page', () => {
+    it('returns up to 20 rows with camelCase fields and correct page_info', async () => {
+      // 25 rows for USER_A plus 3 rows for USER_B: the default-limit probe must
+      // fetch limit+1 (21) rows so the controller can compute has_next.
+      table = [
+        ...Array.from({ length: 25 }, (_, i) => txRow(125 - i, USER_A)),
+        ...[90, 89, 88].map((id) => txRow(id, USER_B)),
+      ];
+
+      const res = await request(app)
+        .get('/api/transactions/me')
+        .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveLength(20);
+      expect(res.body.page_info).toEqual(
+        expect.objectContaining({
+          limit: 20,
+          count: 20,
+          next_cursor: '106',
+          has_previous: false,
+          has_next: true,
+        }),
+      );
+
+      // Snake_case DB columns are mapped to camelCase API fields.
+      expect(res.body.data[0]).toEqual({
+        id: 125,
+        txHash: 'tx-hash-125',
+        status: 'success',
+        submittedAt: txRow(125, USER_A).submitted_at,
+        submittedBy: USER_A,
+        transactionType: 'payment',
+        resultXdr: 'xdr-125',
+      });
+      expect(res.body.data[19].id).toBe(106);
+
+      // Query is scoped to the authenticated wallet and probes limit+1 rows.
+      expect(lastParams[0]).toBe(USER_A);
+      expect(lastParams[1]).toBe(21);
+      expect(normalizeSql(lastSql)).toContain('WHERE submitted_by = $1');
+      expect(normalizeSql(lastSql)).not.toContain('AND id < $3');
+    });
+  });
 });
