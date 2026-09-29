@@ -309,5 +309,19 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       // Controller probes limit + 1 rows, so the clamp is visible in the query.
       expect(lastParams[1]).toBe(501);
     });
+
+    it('falls back to the default limit for invalid limit values', async () => {
+      table = Array.from({ length: 25 }, (_, i) => txRow(25 - i, USER_A));
+
+      for (const limit of ['abc', '0', '-5']) {
+        const res = await request(app)
+          .get(`/api/transactions/me?limit=${encodeURIComponent(limit)}`)
+          .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.page_info.limit).toBe(20);
+        expect(lastParams[1]).toBe(21);
+      }
+    });
   });
 });
