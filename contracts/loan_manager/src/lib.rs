@@ -165,6 +165,9 @@ impl LoanManager {
     const DEFAULT_LIQUIDATION_THRESHOLD_BPS: u32 = 15_000;
     const DEFAULT_LIQUIDATION_BONUS_BPS: u32 = 500;
     const MAX_LIQUIDATION_BONUS_BPS: u32 = 2000; // 20% cap on liquidation bonus
+    /// Minimum bonus (in basis points of collateral) paid to liquidators on
+    /// underwater loans so that clearing bad debt remains economically viable.
+    const MIN_UNDERWATER_BONUS_BPS: u32 = 200; // 2% floor
     const MIN_COLLATERAL_RATIO_BPS: i128 = 10_000;
     const MAX_RATIO_BPS: u32 = 10_000;
     const LATE_REPAYMENT_SCORE_PENALTY: i32 = 10;
@@ -1799,7 +1802,24 @@ impl LoanManager {
                 .expect("borrower refund underflow");
             (total_debt, liquidator_bonus, borrower_refund)
         } else {
-            (collateral_amount, 0, 0)
+            // Underwater loan: collateral < total_debt.  Provide a minimum
+            // bonus from the collateral so liquidators are incentivised to
+            // clear bad debt rather than leaving it stranded.
+            let underwater_bonus = collateral_amount
+                .checked_mul(Self::MIN_UNDERWATER_BONUS_BPS as i128)
+                .and_then(|v| {
+                    money::round_div(
+                        v,
+                        Self::MAX_RATIO_BPS as i128,
+                        money::RoundingMode::Floor,
+                    )
+                    .ok()
+                })
+                .unwrap_or(0);
+            let debt_portion = collateral_amount
+                .checked_sub(underwater_bonus)
+                .unwrap_or(collateral_amount);
+            (debt_portion, underwater_bonus, 0)
         };
 
         let unpaid_principal = Self::remaining_principal(&loan);
@@ -2982,6 +3002,13 @@ impl LoanManager {
         // Only Approved loans can be extended
         if loan.status != LoanStatus::Approved {
             return Err(LoanError::LoanNotActive);
+        }
+
+        // Re-check the borrower hasn't been seized since loan approval
+        let nft_contract = Self::nft_contract(&env);
+        let nft_client = NftClient::new(&env, &nft_contract);
+        if nft_client.is_seized(&loan.borrower) {
+            return Err(LoanError::SeizedBorrower);
         }
 
         // Check if loan is past due (in default window)
