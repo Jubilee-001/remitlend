@@ -260,4 +260,31 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       expect(allIds).toEqual([5, 4, 3, 2, 1]);
     });
   });
+
+  describe('invalid / malformed cursor', () => {
+    it.each(['abc', '0', '-1', ''])(
+      'treats cursor=%p as absent instead of erroring or leaking rows',
+      async (cursor) => {
+        table = [5, 4, 3, 2, 1].map((id) => txRow(id, USER_A));
+
+        const res = await request(app)
+          .get(`/api/transactions/me?cursor=${encodeURIComponent(cursor)}`)
+          .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+        // No cursor clause and no $3 param: behaves like a first page.
+        expect(normalizeSql(lastSql)).not.toContain('AND id < $3');
+        expect(lastParams).toHaveLength(2);
+        expect(res.body.page_info).toEqual(
+          expect.objectContaining({
+            has_previous: false,
+            has_next: false,
+            next_cursor: null,
+          }),
+        );
+        expect(res.body.data.map((row: { id: number }) => row.id)).toEqual([5, 4, 3, 2, 1]);
+      },
+    );
+  });
 });
