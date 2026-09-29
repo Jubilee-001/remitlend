@@ -350,5 +350,23 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       expect(lastParams[0]).toBe(USER_A);
       expect(normalizeSql(lastSql)).toContain('WHERE submitted_by = $1');
     });
+
+    it('applies the ownership filter on cursor pages too', async () => {
+      table = [
+        ...[99, 98, 97].map((id) => txRow(id, USER_B)),
+        ...[30, 29, 28].map((id) => txRow(id, USER_A)),
+      ];
+
+      const res = await request(app)
+        .get('/api/transactions/me?limit=2&cursor=29')
+        .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.map((row: { id: number }) => row.id)).toEqual([28]);
+      expect(lastParams[0]).toBe(USER_A);
+      expect(lastParams[2]).toBe(29);
+      expect(normalizeSql(lastSql)).toContain('WHERE submitted_by = $1');
+      expect(normalizeSql(lastSql)).toContain('AND id < $3');
+    });
   });
 });
