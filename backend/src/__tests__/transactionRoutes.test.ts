@@ -195,4 +195,69 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       expect(normalizeSql(lastSql)).not.toContain('AND id < $3');
     });
   });
+
+  describe('cursor pagination', () => {
+    it('walks multiple pages without duplicating or skipping rows', async () => {
+      table = [5, 4, 3, 2, 1].map((id) => txRow(id, USER_A));
+
+      const token = createAuthToken(USER_A);
+
+      // Page 1: no cursor.
+      const page1 = await request(app)
+        .get('/api/transactions/me?limit=2')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(page1.status).toBe(200);
+      expect(page1.body.data.map((row: { id: number }) => row.id)).toEqual([5, 4]);
+      expect(page1.body.page_info).toEqual(
+        expect.objectContaining({
+          limit: 2,
+          count: 2,
+          next_cursor: '4',
+          has_previous: false,
+          has_next: true,
+        }),
+      );
+      expect(lastParams).toEqual([USER_A, 3]);
+
+      // Page 2: cursor from page 1.
+      const page2 = await request(app)
+        .get('/api/transactions/me?limit=2&cursor=4')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(page2.status).toBe(200);
+      expect(normalizeSql(lastSql)).toContain('AND id < $3');
+      expect(lastParams).toEqual([USER_A, 3, 4]);
+      expect(page2.body.data.map((row: { id: number }) => row.id)).toEqual([3, 2]);
+      expect(page2.body.page_info).toEqual(
+        expect.objectContaining({
+          next_cursor: '2',
+          has_previous: true,
+          has_next: true,
+        }),
+      );
+
+      // Page 3: cursor from page 2 — last page.
+      const page3 = await request(app)
+        .get('/api/transactions/me?limit=2&cursor=2')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(page3.status).toBe(200);
+      expect(lastParams).toEqual([USER_A, 3, 2]);
+      expect(page3.body.data.map((row: { id: number }) => row.id)).toEqual([1]);
+      expect(page3.body.page_info).toEqual(
+        expect.objectContaining({
+          next_cursor: null,
+          has_previous: true,
+          has_next: false,
+        }),
+      );
+
+      // The full walk covers every row exactly once, newest first.
+      const allIds = [...page1.body.data, ...page2.body.data, ...page3.body.data].map(
+        (row: { id: number }) => row.id,
+      );
+      expect(allIds).toEqual([5, 4, 3, 2, 1]);
+    });
+  });
 });
