@@ -324,4 +324,31 @@ describe('GET /api/transactions/me (listMyTransactions)', () => {
       }
     });
   });
+
+  describe('ownership filter', () => {
+    it('never returns rows submitted by another user', async () => {
+      // USER_B rows have higher ids: if the ownership filter were dropped they
+      // would appear first in the newest-first ordering.
+      table = [
+        ...[99, 98, 97].map((id) => txRow(id, USER_B)),
+        ...[30, 29, 28].map((id) => txRow(id, USER_A)),
+      ];
+
+      const res = await request(app)
+        .get('/api/transactions/me')
+        .set('Authorization', `Bearer ${createAuthToken(USER_A)}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(3);
+      for (const row of res.body.data) {
+        expect(row.submittedBy).toBe(USER_A);
+        expect([30, 29, 28]).toContain(row.id);
+      }
+      expect(res.body.data.map((row: { id: number }) => row.id)).toEqual([30, 29, 28]);
+
+      // The SQL itself must filter on the authenticated wallet as $1.
+      expect(lastParams[0]).toBe(USER_A);
+      expect(normalizeSql(lastSql)).toContain('WHERE submitted_by = $1');
+    });
+  });
 });
