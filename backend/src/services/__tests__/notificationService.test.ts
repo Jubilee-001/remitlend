@@ -229,7 +229,8 @@ describe('notificationService', () => {
       process.env.ADMIN_EMAIL = 'admin@remitlend.com';
       delete process.env.ADMIN_WALLETS;
 
-      const maliciousMessage = 'Dispute resolved: <b>confirmed</b><a href="http://evil.com">click</a>';
+      const maliciousMessage =
+        'Dispute resolved: <b>confirmed</b><a href="http://evil.com">click</a>';
 
       mockQuery.mockResolvedValueOnce({
         rows: [
