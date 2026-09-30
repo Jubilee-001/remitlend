@@ -110,6 +110,32 @@ describe('yieldHistoryService', () => {
     expect(latest.netYield).toBe(-250);
   });
 
+  it('returns negative netYield when currentValue < depositedValue', async () => {
+    const now = new Date();
+    const t1 = new Date(now);
+    t1.setUTCDate(t1.getUTCDate() - 2);
+
+    // Pool events: single deposit
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ event_type: 'Deposit', amount: '1000', ledger_closed_at: t1, value: null }],
+    });
+    // Depositor events: single deposit
+    mockQuery.mockResolvedValueOnce({
+      rows: [{ event_type: 'Deposit', amount: '1000', ledger_closed_at: t1, value: null }],
+    });
+
+    // currentSharePrice = 500_000 means 0.5 XLM per share
+    // Depositor has 1000 shares → currentValue = 500
+    // Cost basis = 1000 → netYield = 500 - 1000 = -500 (negative!)
+    const history = await buildDepositorYieldHistory('GDep', 'GTok', 7, 500_000);
+
+    expect(history.length).toBeGreaterThan(0);
+    const latest = history[history.length - 1]!;
+    expect(latest.depositedValue).toBe(1000);
+    expect(latest.currentValue).toBe(500);
+    expect(latest.netYield).toBe(-500);
+  });
+
   it('EmergencyWithdraw follows the same cost-basis reduction path as Withdraw', async () => {
     const now = new Date();
     const t1 = new Date(now);
