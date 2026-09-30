@@ -82,38 +82,39 @@ function buildEmailTemplate(
   type: NotificationType,
   message: string,
 ): { subject: string; html: string } {
+  const safeMessage = escapeHtml(message);
   const templates: Record<NotificationType, { subject: string; html: string }> = {
     loan_approved: {
       subject: 'Your loan has been approved — RemitLend',
-      html: `<h2>Loan Approved</h2><p>${message}</p><p>Log in to view your loan details and repayment schedule.</p>`,
+      html: `<h2>Loan Approved</h2><p>${safeMessage}</p><p>Log in to view your loan details and repayment schedule.</p>`,
     },
     repayment_due: {
       subject: 'Repayment reminder — RemitLend',
-      html: `<h2>Repayment Due Soon</h2><p>${message}</p><p>Please ensure funds are available to avoid a default.</p>`,
+      html: `<h2>Repayment Due Soon</h2><p>${safeMessage}</p><p>Please ensure funds are available to avoid a default.</p>`,
     },
     repayment_confirmed: {
       subject: 'Repayment confirmed — RemitLend',
-      html: `<h2>Repayment Confirmed</h2><p>${message}</p><p>Thank you for your payment.</p>`,
+      html: `<h2>Repayment Confirmed</h2><p>${safeMessage}</p><p>Thank you for your payment.</p>`,
     },
     loan_defaulted: {
       subject: 'Loan default notice — RemitLend',
-      html: `<h2>Loan Defaulted</h2><p>${message}</p><p>Contact support immediately if you believe this is an error.</p>`,
+      html: `<h2>Loan Defaulted</h2><p>${safeMessage}</p><p>Contact support immediately if you believe this is an error.</p>`,
     },
     loan_liquidated: {
       subject: 'Your loan has been liquidated — RemitLend',
-      html: `<h2>Loan Liquidated</h2><p>${message}</p><p>Contact support if you have questions about the outcome.</p>`,
+      html: `<h2>Loan Liquidated</h2><p>${safeMessage}</p><p>Contact support if you have questions about the outcome.</p>`,
     },
     score_changed: {
       subject: 'Your credit score has changed — RemitLend',
-      html: `<h2>Credit Score Update</h2><p>${message}</p><p>Log in to see your updated score and history.</p>`,
+      html: `<h2>Credit Score Update</h2><p>${safeMessage}</p><p>Log in to see your updated score and history.</p>`,
     },
     dispute_opened: {
       subject: 'Loan dispute opened — RemitLend',
-      html: `<h2>Loan Dispute Opened</h2><p>${message}</p><p>Log in to review the dispute.</p>`,
+      html: `<h2>Loan Dispute Opened</h2><p>${safeMessage}</p><p>Log in to review the dispute.</p>`,
     },
     dispute_contested: {
       subject: 'Loan default contested — RemitLend',
-      html: `<h2>Loan Default Contested</h2><p>${message}</p><p>Log in to review the borrower's dispute.</p>`,
+      html: `<h2>Loan Default Contested</h2><p>${safeMessage}</p><p>Log in to review the borrower's dispute.</p>`,
     },
   };
 
