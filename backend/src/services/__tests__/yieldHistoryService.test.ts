@@ -106,7 +106,8 @@ describe('yieldHistoryService', () => {
     // After withdrawing half the shares the cost basis should have halved
     const latest = history[history.length - 1]!;
     // netYield = currentValue - costBasis; costBasis after withdraw ≈ 500
-    expect(latest.netYield).toBeGreaterThanOrEqual(-1); // may be slightly negative due to share price
+    // currentSharePrice=500_000 → currentValue = 250, so netYield = -250
+    expect(latest.netYield).toBe(-250);
   });
 
   it('EmergencyWithdraw follows the same cost-basis reduction path as Withdraw', async () => {
