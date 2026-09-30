@@ -1,5 +1,6 @@
 import { query } from '../db/connection.js';
 import logger from '../utils/logger.js';
+import { escapeHtml } from '../utils/escapeHtml.js';
 import type { Response } from 'express';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
