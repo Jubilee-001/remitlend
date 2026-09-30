@@ -141,7 +141,7 @@ async function sendEmail(email: string, message: string, type?: NotificationType
 
   const template = type
     ? buildEmailTemplate(type, message)
-    : { subject: 'Notification from RemitLend', html: `<p>${message}</p>` };
+    : { subject: 'Notification from RemitLend', html: `<p>${escapeHtml(message)}</p>` };
 
   try {
     const sgMail = await import('@sendgrid/mail');
