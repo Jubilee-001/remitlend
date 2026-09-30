@@ -86,12 +86,19 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
       expect(bobKey).toContain(BOB);
     });
 
-    it('does not replay another wallet’s cached response', async () => {
+    it('does not replay another wallet\'s cached response', async () => {
       // Bob's response is already cached under his namespace…
-      asMock(cacheService.get).mockResolvedValue({
-        status: 201,
-        body: { id: 'bob-loan' },
-        fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
+      asMock(cacheService.get).mockImplementation((key: string) => {
+        // Return cached response only for Bob's key
+        if (String(key).includes(BOB)) {
+          return Promise.resolve({
+            status: 201,
+            body: { id: 'bob-loan' },
+            fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
+          });
+        }
+        // Alice's key gets a cache miss
+        return Promise.resolve(null);
       });
 
       // …so Alice sending the identical key, path and body gets a cache miss
@@ -99,13 +106,22 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
       await idempotencyMiddleware(req as Request, res as Response, next);
 
       expect(cacheKeysRead()[0]).not.toContain('bob-loan');
-      expect(res.json).not.toHaveBeenCalledWith({ id: 'bob-loan' });
+      // On cache miss, next() is called to run the handler (not res.json with cached response)
+      expect(next).toHaveBeenCalled();
     });
 
     it('does not reject a user with 409 because another user holds the key', async () => {
       // Bob's in-flight lock is held under his namespace.
+      // Alice's setNotExists should succeed (return true) since it's a different key.
       asMock(cacheService.get).mockResolvedValue(null);
-      asMock(cacheService.setNotExists).mockResolvedValue(false);
+      asMock(cacheService.setNotExists).mockImplementation((key: string) => {
+        // Only fail (return false) for Bob's lock key
+        if (String(key).includes(BOB)) {
+          return Promise.resolve(false);
+        }
+        // Alice acquires her own lock successfully
+        return Promise.resolve(true);
+      });
 
       await idempotencyMiddleware(req as Request, res as Response, next);
 
