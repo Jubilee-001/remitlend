@@ -224,6 +224,43 @@ describe('notificationService', () => {
       expect(sendArg.html).toContain('&lt;script&gt;');
       expect(sendArg.html).toContain('&lt;img');
     });
+
+    it('escapes HTML in notifyAdmins email', async () => {
+      process.env.ADMIN_EMAIL = 'admin@remitlend.com';
+      delete process.env.ADMIN_WALLETS;
+
+      const maliciousMessage = 'Dispute resolved: <b>confirmed</b><a href="http://evil.com">click</a>';
+
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 1,
+            user_id: 'admin1',
+            type: 'dispute_contested',
+            title: 'Loan Default Contested',
+            message: maliciousMessage,
+            loan_id: null,
+            action_url: null,
+            read: false,
+            status: 'unread',
+            created_at: new Date('2026-05-28T12:00:00.000Z'),
+          },
+        ],
+        rowCount: 1,
+      });
+
+      await notificationService.notifyAdmins({
+        title: 'Loan Default',
+        message: maliciousMessage,
+      });
+
+      expect(mockSendGridSend).toHaveBeenCalledTimes(1);
+      const sendArg = mockSendGridSend.mock.calls[0]?.[0] as { html: string };
+      expect(sendArg.html).not.toContain('<b>');
+      expect(sendArg.html).not.toContain('<a ');
+      expect(sendArg.html).toContain('&lt;b&gt;');
+      expect(sendArg.html).toContain('&lt;a ');
+    });
   });
 
   describe('notifyAdmins', () => {
