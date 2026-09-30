@@ -153,6 +153,79 @@ describe('notificationService', () => {
     });
   });
 
+  describe('email HTML escaping', () => {
+    const originalFromEmail = process.env.FROM_EMAIL;
+    const originalSendGridKey = process.env.SENDGRID_API_KEY;
+
+    beforeEach(() => {
+      process.env.FROM_EMAIL = 'noreply@remitlend.com';
+      process.env.SENDGRID_API_KEY = 'test-key';
+    });
+
+    afterEach(() => {
+      if (originalFromEmail === undefined) {
+        delete process.env.FROM_EMAIL;
+      } else {
+        process.env.FROM_EMAIL = originalFromEmail;
+      }
+      if (originalSendGridKey === undefined) {
+        delete process.env.SENDGRID_API_KEY;
+      } else {
+        process.env.SENDGRID_API_KEY = originalSendGridKey;
+      }
+    });
+
+    it('escapes HTML in message before embedding in email body', async () => {
+      const maliciousMessage =
+        'Your dispute has been resolved: <script>alert("xss")</script><img src=x onerror=alert(1)>';
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 1,
+              user_id: 'user1',
+              type: 'loan_defaulted',
+              title: 'Dispute resolved',
+              message: maliciousMessage,
+              loan_id: 42,
+              action_url: '/loans/42',
+              read: false,
+              status: 'unread',
+              created_at: new Date('2026-05-28T12:00:00.000Z'),
+            },
+          ],
+          rowCount: 1,
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              email: 'borrower@example.com',
+              phone: null,
+              email_enabled: true,
+              sms_enabled: false,
+            },
+          ],
+          rowCount: 1,
+        });
+
+      await notificationService.createNotification({
+        userId: 'user1',
+        type: 'loan_defaulted',
+        title: 'Dispute resolved',
+        message: maliciousMessage,
+        loanId: 42,
+      });
+
+      expect(mockSendGridSend).toHaveBeenCalledTimes(1);
+      const sendArg = mockSendGridSend.mock.calls[0]?.[0] as { html: string };
+      expect(sendArg.html).not.toContain('<script>');
+      expect(sendArg.html).not.toContain('<img');
+      expect(sendArg.html).toContain('&lt;script&gt;');
+      expect(sendArg.html).toContain('&lt;img');
+    });
+  });
+
   describe('notifyAdmins', () => {
     const originalAdminWallets = process.env.ADMIN_WALLETS;
     const originalAdminEmail = process.env.ADMIN_EMAIL;
