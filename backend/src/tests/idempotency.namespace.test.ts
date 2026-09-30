@@ -86,7 +86,7 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
       expect(bobKey).toContain(BOB);
     });
 
-    it('does not replay another wallet\'s cached response', async () => {
+    it("does not replay another wallet's cached response", async () => {
       // Bob's response is already cached under his namespace…
       asMock(cacheService.get).mockImplementation((key: string) => {
         // Return cached response only for Bob's key
