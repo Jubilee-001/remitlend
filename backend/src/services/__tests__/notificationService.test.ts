@@ -11,8 +11,10 @@ jest.unstable_mockModule('twilio', () => ({
   default: jest.fn(() => ({ messages: { create: jest.fn() } })),
 }));
 
+const mockSendGridSend = jest.fn();
+
 jest.unstable_mockModule('@sendgrid/mail', () => ({
-  default: { setApiKey: jest.fn(), send: jest.fn() },
+  default: { setApiKey: jest.fn(), send: mockSendGridSend },
 }));
 
 const { notificationService } = await import('../notificationService.js');
