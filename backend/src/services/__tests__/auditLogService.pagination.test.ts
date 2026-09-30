@@ -9,13 +9,13 @@ jest.unstable_mockModule('../../db/connection.js', () => ({
   query: mockQuery,
 }));
 
-const { getAuditLogs } = await import('../auditLogService.js');
-
 const PAGE_ROWS = [
   { id: '300', created_at: '2026-03-03T00:00:00.000Z' },
   { id: '299', created_at: '2026-03-02T00:00:00.000Z' },
   { id: '298', created_at: '2026-03-01T00:00:00.000Z' },
 ];
+
+const { getAuditLogs } = await import('../auditLogService.js');
 
 /** Last call to query() — always the SELECT page statement. */
 const pageQuery = () => {
@@ -25,21 +25,21 @@ const pageQuery = () => {
   return { text: String(call?.[0]), values: (call?.[1] as unknown[]) ?? [] };
 };
 
-describe('getAuditLogs keyset pagination and totals (#1808)', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    mockQuery.mockImplementation((text: unknown) => {
-      const sql = String(text);
-      if (sql.includes('SELECT * FROM audit_logs')) {
-        return Promise.resolve({ rows: PAGE_ROWS });
-      }
-      if (sql.includes('COUNT(*)')) {
-        return Promise.resolve({ rows: [{ count: 7 }] });
-      }
-      return Promise.resolve({ rows: [] });
-    });
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockQuery.mockImplementation((text: unknown) => {
+    const sql = String(text);
+    if (sql.includes('SELECT * FROM audit_logs')) {
+      return Promise.resolve({ rows: PAGE_ROWS });
+    }
+    if (sql.includes('COUNT(*)')) {
+      return Promise.resolve({ rows: [{ count: 7 }] });
+    }
+    return Promise.resolve({ rows: [] });
   });
+});
 
+describe('getAuditLogs keyset pagination and totals (#1808)', () => {
   describe('ordering matches the cursor', () => {
     it('orders by created_at then id, both descending', async () => {
       await getAuditLogs({ limit: 2 });
