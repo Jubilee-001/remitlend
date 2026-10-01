@@ -56,25 +56,31 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
     };
     next = jest.fn();
 
-    jest.spyOn(cacheService, 'get').mockReset().mockImplementation((key: string) => {
-      // Only return cached data for Bob's key, not Alice's
-      if (key === bobCacheKey) {
-        return Promise.resolve({
-          status: 201,
-          body: { id: 'bob-loan' },
-          fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
-        });
-      }
-      return Promise.resolve(null);
-    });
+    jest
+      .spyOn(cacheService, 'get')
+      .mockReset()
+      .mockImplementation((key: string) => {
+        // Only return cached data for Bob's key, not Alice's
+        if (key === bobCacheKey) {
+          return Promise.resolve({
+            status: 201,
+            body: { id: 'bob-loan' },
+            fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
+          });
+        }
+        return Promise.resolve(null);
+      });
     jest.spyOn(cacheService, 'set').mockReset().mockResolvedValue(undefined);
-    jest.spyOn(cacheService, 'setNotExists').mockReset().mockImplementation((key: string) => {
-      // Only return false (lock held) for Bob's lock key, not Alice's
-      if (key === bobLockKey) {
-        return Promise.resolve(false);
-      }
-      return Promise.resolve(true);
-    });
+    jest
+      .spyOn(cacheService, 'setNotExists')
+      .mockReset()
+      .mockImplementation((key: string) => {
+        // Only return false (lock held) for Bob's lock key, not Alice's
+        if (key === bobLockKey) {
+          return Promise.resolve(false);
+        }
+        return Promise.resolve(true);
+      });
     jest.spyOn(cacheService, 'delete').mockReset().mockResolvedValue(undefined);
   });
 

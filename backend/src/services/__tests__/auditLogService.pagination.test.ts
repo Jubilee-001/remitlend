@@ -1,6 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 
-const mockQuery = jest.fn<(...args: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>>()
+const mockQuery = jest
+  .fn<(...args: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>>()
   .mockResolvedValue({ rows: [], rowCount: 0 });
 
 jest.unstable_mockModule('../../db/connection.js', () => ({
