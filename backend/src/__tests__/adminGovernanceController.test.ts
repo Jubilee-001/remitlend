@@ -44,7 +44,7 @@ describe('adminGovernanceController - getPendingGovernance', () => {
     const res = createMockResponse();
 
     // Database returns rows from multiple proposals (ordered by proposal_id DESC)
-    mockQuery.mockResolvedOnce({
+    mockQuery.mockResolvedValueOnce({
       rows: [
         {
           proposal_id: 'prop-2',
@@ -73,7 +73,7 @@ describe('adminGovernanceController - getPendingGovernance', () => {
           threshold: 2,
           executable_at: null,
           expires_at: null,
-          signer_address: 'GSIGNER_PROP2_ONLY',
+          signer_address: 'GSIGNER_PROP1_ONLY',
           approved: true,
         },
       ],
@@ -107,7 +107,7 @@ describe('adminGovernanceController - getPendingGovernance', () => {
     const req = {} as Request;
     const res = createMockResponse();
 
-    mockQuery.mockResolvedOnce({
+    mockQuery.mockResolvedValueOnce({
       rows: [],
       rowCount: 0,
     });
