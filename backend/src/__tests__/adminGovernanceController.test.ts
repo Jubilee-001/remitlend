@@ -1,9 +1,10 @@
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';import type { Request, Response } from 'express';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import type { Request, Response } from 'express';
 
 type MockQueryResult = { rows: Record<string, unknown>[]; rowCount: number };
 
 const mockQuery: jest.MockedFunction<
-(sql: string, params?: unknown[]) => Promise<MockQueryResult>
+  (sql: string, params?: unknown[]) => Promise<MockQueryResult>
 > = jest.fn();
 
 jest.unstable_mockModule('../db/connection.js', () => ({
@@ -115,7 +116,7 @@ describe('adminGovernanceController - getPendingGovernance', () => {
     await flushAsync();
 
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining( {
+      expect.objectContaining({
         pendingProposal: null,
         signers: [
           { address: 'GSIGNER_1', approved: false },
