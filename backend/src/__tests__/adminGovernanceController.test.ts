@@ -98,9 +98,9 @@ describe('adminGovernanceController - getPendingGovernance', () => {
       { address: 'GSIGNER_PROP2_PENDING', approved: false },
     ]);
 
-    expect(
-      signers.some((s: { address: string }) => s.address === 'GSIGNER_PROP1_ONLY'),
-    ).toBe(false);
+    expect(signers.some((s: { address: string }) => s.address === 'GSIGNER_PROP1_ONLY')).toBe(
+      false,
+    );
   });
 
   it('returns fallback signers from env when no pending proposal exists', async () => {
