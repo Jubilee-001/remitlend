@@ -84,7 +84,9 @@ describeIf('Migrations', () => {
     const updates = new Map<string, number>([[testBorrower, 50]]);
     await updateUserScoresBulk(updates);
 
-    const result = await query(`SELECT current_score FROM scores WHERE user_id = $1`, [testBorrower]);
+    const result = await query(`SELECT current_score FROM scores WHERE user_id = $1`, [
+      testBorrower,
+    ]);
     expect(Number(result.rows[0]?.current_score ?? 0)).toBe(550);
 
     await query(`DELETE FROM scores WHERE user_id = $1`, [testBorrower]);
