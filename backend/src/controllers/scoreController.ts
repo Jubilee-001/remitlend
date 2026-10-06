@@ -61,7 +61,9 @@ export const getScore = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const result = await query('SELECT current_score AS score FROM scores WHERE user_id = $1', [userId]);
+  const result = await query('SELECT current_score AS score FROM scores WHERE user_id = $1', [
+    userId,
+  ]);
 
   const score =
     result.rows.length > 0 ? (result.rows[0].score ?? result.rows[0].current_score) : 500;
@@ -99,7 +101,9 @@ export const updateScore = asyncHandler(async (req: Request, res: Response) => {
   };
 
   // Get old score first for the response
-  const oldResult = await query('SELECT current_score AS score FROM scores WHERE user_id = $1', [userId]);
+  const oldResult = await query('SELECT current_score AS score FROM scores WHERE user_id = $1', [
+    userId,
+  ]);
   const oldScore =
     oldResult.rows.length > 0 ? (oldResult.rows[0].score ?? oldResult.rows[0].current_score) : 500;
 
