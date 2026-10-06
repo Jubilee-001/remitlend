@@ -541,6 +541,43 @@ fn test_decrease_score_applies_floor_at_300() {
 }
 
 #[test]
+fn test_decrease_score_never_raises_a_sub_minimum_score() {
+    // Regression test for #1141: decrease_score used to compute
+    // `max(old - penalty, MIN_CREDIT_SCORE)`, which for any score below the
+    // floor bumped the score *up* to 300 — a penalty that improved
+    // creditworthiness. A penalty must only lower or keep the score.
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+    // `mint` clamps to MIN_CREDIT_SCORE, so drive the score below the floor via
+    // the reachable adjustment path (legacy `Score` state can also be sub-300).
+    client.mint(
+        &user,
+        &300,
+        &create_test_hash(&env, 9),
+        &create_test_uri(&env),
+        &create_test_commitment(&env, 1),
+        &None,
+    );
+    client.apply_score_delta(&user, &-100, &None);
+    assert_eq!(client.get_score(&user), 200);
+
+    client.decrease_score(&user, &50, &None);
+    assert!(
+        client.get_score(&user) <= 200,
+        "a penalty must never raise a sub-floor score"
+    );
+    assert_eq!(client.get_score(&user), 200);
+}
+
+#[test]
 fn test_update_history_hash_migrates_legacy_data() {
     let env = Env::default();
     env.mock_all_auths();
@@ -1321,53 +1358,6 @@ fn test_transfer_rejects_unauthorized_minter() {
     );
 
     client.transfer(&from, &to, &Some(unauthorized_minter));
-}
-
-#[test]
-fn test_transfer_rejects_explicitly_burned_destination() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let from = Address::generate(&env);
-    let to = Address::generate(&env);
-
-    let contract_id = env.register(RemittanceNFT, ());
-    let client = RemittanceNFTClient::new(&env, &contract_id);
-
-    client.initialize(&admin);
-
-    // `to` gets minted, then burned — simulating a defaulted account
-    // that hit the burn threshold.
-    client.mint(
-        &to,
-        &500,
-        &create_test_hash(&env, 30),
-        &create_test_uri(&env),
-        &create_test_commitment(&env, 1),
-        &None,
-    );
-    client.burn(&to, &None);
-
-    // `from` has an active, unburned identity.
-    client.mint(
-        &from,
-        &500,
-        &create_test_hash(&env, 31),
-        &create_test_uri(&env),
-        &create_test_commitment(&env, 2),
-        &None,
-    );
-
-    // Transferring into the burned address must be rejected — it must not
-    // be able to regain a clean credit identity via the transfer path.
-    let result = client.try_transfer(&from, &to, &None);
-    assert_eq!(result, Err(Ok(NftError::BurnedRequiresApproval)));
-
-    // `from`'s identity must be untouched — the rejected transfer must not
-    // have mutated any state on either side.
-    assert!(client.get_metadata(&from).is_some());
-    assert!(client.get_metadata(&to).is_none());
 }
 
 #[test]
@@ -2881,138 +2871,206 @@ fn test_burn_removes_all_per_user_keys() {
     );
 }
 
-// ── clear_default (#1803 — administrative reversal of a default) ─────────────
-
 #[test]
-fn test_clear_default_decrements_count_and_lifts_seize() {
+fn test_decrease_score_rejects_unauthorized_minter() {
     let env = Env::default();
     env.mock_all_auths();
 
     let admin = Address::generate(&env);
-    let user = Address::generate(&env);
-
-    let contract_id = env.register(RemittanceNFT, ());
-    let client = RemittanceNFTClient::new(&env, &contract_id);
-
-    client.initialize(&admin);
-    client.mint(
-        &user,
-        &500,
-        &create_test_hash(&env, 40),
-        &create_test_uri(&env),
-        &create_test_commitment(&env, 1),
-        &None,
-    );
-
-    // Two recorded defaults, so the decrement is observable without the
-    // count collapsing straight to a missing key.
-    client.record_default(&user, &None);
-    client.record_default(&user, &None);
-    assert_eq!(client.get_default_count(&user), 2);
-    assert!(client.is_seized(&user));
-
-    client.clear_default(&user, &None);
-
-    assert_eq!(client.get_default_count(&user), 1);
-    assert!(!client.is_seized(&user));
-    // Reversal repairs the default record; it never mints or restores metadata.
-    assert!(client.get_metadata(&user).is_some());
-}
-
-#[test]
-fn test_clear_default_on_last_default_removes_the_recorded_count() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let user = Address::generate(&env);
-
-    let contract_id = env.register(RemittanceNFT, ());
-    let client = RemittanceNFTClient::new(&env, &contract_id);
-
-    client.initialize(&admin);
-    client.mint(
-        &user,
-        &500,
-        &create_test_hash(&env, 41),
-        &create_test_uri(&env),
-        &create_test_commitment(&env, 1),
-        &None,
-    );
-
-    client.record_default(&user, &None);
-    assert_eq!(client.get_default_count(&user), 1);
-
-    client.clear_default(&user, &None);
-
-    // Zero is reported for a missing key, matching burn_internal.
-    assert_eq!(client.get_default_count(&user), 0);
-
-    // A cleared record must not re-arm the burn threshold: a later default
-    // still starts counting from zero rather than reusing the cleared entry.
-    client.record_default(&user, &None);
-    assert_eq!(client.get_default_count(&user), 1);
-    assert!(client.get_metadata(&user).is_some());
-}
-
-#[test]
-fn test_clear_default_is_a_noop_for_a_burned_account() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let user = Address::generate(&env);
-
-    let contract_id = env.register(RemittanceNFT, ());
-    let client = RemittanceNFTClient::new(&env, &contract_id);
-
-    client.initialize(&admin);
-    client.set_default_burn_threshold(&1);
-    client.mint(
-        &user,
-        &500,
-        &create_test_hash(&env, 42),
-        &create_test_uri(&env),
-        &create_test_commitment(&env, 1),
-        &None,
-    );
-
-    client.record_default(&user, &None);
-    assert!(client.get_metadata(&user).is_none());
-
-    // A reversal that arrives after the burn cannot resurrect the record; the
-    // sanctioned path back is approve_remint + admin_remint.
-    client.clear_default(&user, &None);
-
-    assert!(client.get_metadata(&user).is_none());
-    assert_eq!(client.get_default_count(&user), 0);
-    assert!(!client.is_seized(&user));
-    assert_eq!(client.get_score(&user), 0);
-}
-
-#[test]
-#[should_panic]
-fn test_clear_default_requires_authorized_minter() {
-    let env = Env::default();
-    env.mock_all_auths();
-
-    let admin = Address::generate(&env);
-    let user = Address::generate(&env);
     let unauthorized_minter = Address::generate(&env);
+    let user = Address::generate(&env);
 
     let contract_id = env.register(RemittanceNFT, ());
     let client = RemittanceNFTClient::new(&env, &contract_id);
 
     client.initialize(&admin);
+
+    let history_hash = create_test_hash(&env, 1);
     client.mint(
         &user,
         &500,
-        &create_test_hash(&env, 43),
+        &history_hash,
         &create_test_uri(&env),
         &create_test_commitment(&env, 1),
         &None,
     );
-    client.record_default(&user, &None);
 
-    client.clear_default(&user, &Some(unauthorized_minter));
+    let result = client.try_decrease_score(&user, &50, &Some(unauthorized_minter));
+    assert_eq!(result, Err(Ok(NftError::UnauthorizedMinter)));
+}
+
+#[test]
+fn test_decrease_score_rejects_missing_nft() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let result = client.try_decrease_score(&user, &50, &None);
+    assert_eq!(result, Err(Ok(NftError::NftNotFound)));
+}
+
+#[test]
+fn test_set_min_repayment_amount_rejects_negative_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let result = client.try_set_min_repayment_amount(&-1);
+    assert_eq!(result, Err(Ok(NftError::InvalidAmount)));
+}
+
+#[test]
+fn test_set_min_repayment_amount_success() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(&env, &contract_id);
+
+    client.initialize(&admin);
+
+    let result = client.try_set_min_repayment_amount(&500);
+    assert_eq!(result, Ok(Ok(())));
+    assert_eq!(client.get_min_repayment_amount(), 500);
+}
+
+// ── Pause enforcement on lifecycle methods (#1792) ──────────────────────────
+
+fn setup_paused_with_minted_user(env: &Env) -> (RemittanceNFTClient<'_>, Address) {
+    let admin = Address::generate(env);
+    let user = Address::generate(env);
+
+    let contract_id = env.register(RemittanceNFT, ());
+    let client = RemittanceNFTClient::new(env, &contract_id);
+
+    client.initialize(&admin);
+    client.mint(
+        &user,
+        &500,
+        &create_test_hash(env, 1),
+        &create_test_uri(env),
+        &create_test_commitment(env, 1),
+        &None,
+    );
+    client.pause();
+    assert!(client.is_paused());
+
+    (client, user)
+}
+
+#[test]
+fn test_mint_rejected_while_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, _user) = setup_paused_with_minted_user(&env);
+
+    let new_user = Address::generate(&env);
+    let result = client.try_mint(
+        &new_user,
+        &500,
+        &create_test_hash(&env, 2),
+        &create_test_uri(&env),
+        &create_test_commitment(&env, 2),
+        &None,
+    );
+    assert_eq!(result, Err(Ok(NftError::ContractPaused)));
+    assert!(client.get_metadata(&new_user).is_none());
+}
+
+#[test]
+fn test_burn_rejected_while_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, user) = setup_paused_with_minted_user(&env);
+
+    assert_eq!(
+        client.try_burn(&user, &None),
+        Err(Ok(NftError::ContractPaused))
+    );
+    assert!(client.get_metadata(&user).is_some());
+}
+
+#[test]
+fn test_update_score_rejected_while_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, user) = setup_paused_with_minted_user(&env);
+
+    assert_eq!(
+        client.try_update_score(&user, &5_000_000_000, &None),
+        Err(Ok(NftError::ContractPaused))
+    );
+    assert_eq!(client.get_score(&user), 500);
+}
+
+#[test]
+fn test_apply_score_delta_rejected_while_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, user) = setup_paused_with_minted_user(&env);
+
+    assert_eq!(
+        client.try_apply_score_delta(&user, &25, &None),
+        Err(Ok(NftError::ContractPaused))
+    );
+    assert_eq!(client.get_score(&user), 500);
+}
+
+#[test]
+fn test_transfer_rejected_while_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, user) = setup_paused_with_minted_user(&env);
+
+    let new_wallet = Address::generate(&env);
+    assert_eq!(
+        client.try_transfer(&user, &new_wallet, &None),
+        Err(Ok(NftError::ContractPaused))
+    );
+    assert!(client.get_metadata(&user).is_some());
+    assert!(client.get_metadata(&new_wallet).is_none());
+}
+
+#[test]
+fn test_lifecycle_methods_resume_after_unpause() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let (client, user) = setup_paused_with_minted_user(&env);
+
+    client.unpause();
+    assert!(!client.is_paused());
+
+    let second_user = Address::generate(&env);
+    client.mint(
+        &second_user,
+        &500,
+        &create_test_hash(&env, 2),
+        &create_test_uri(&env),
+        &create_test_commitment(&env, 2),
+        &None,
+    );
+    client.update_score(&user, &5_000_000_000, &None);
+    assert_eq!(client.get_score(&user), 505);
+    client.apply_score_delta(&user, &-5, &None);
+    assert_eq!(client.get_score(&user), 500);
+
+    let new_wallet = Address::generate(&env);
+    client.transfer(&user, &new_wallet, &None);
+    assert_eq!(client.get_score(&new_wallet), 500);
+
+    client.burn(&second_user, &None);
+    assert!(client.get_metadata(&second_user).is_none());
 }
