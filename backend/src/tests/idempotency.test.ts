@@ -1,5 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { idempotencyMiddleware, computeFingerprint } from '../middleware/idempotency.js';
+import {
+  idempotencyMiddleware,
+  computeFingerprint,
+  namespacedKey,
+} from '../middleware/idempotency.js';
 import { cacheService } from '../services/cacheService.js';
 import { jest } from '@jest/globals';
 

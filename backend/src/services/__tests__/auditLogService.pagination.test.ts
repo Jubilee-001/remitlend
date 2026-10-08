@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../db/connection.js', () => ({
   query: mockQuery,
 }));
 
-const { getAuditLogs } = await import('../auditLogService.js');
+const { getAuditLogs, decodeCursor } = await import('../auditLogService.js');
 
 const PAGE_ROWS = [
   { id: '300', created_at: '2026-03-03T00:00:00.000Z' },
@@ -17,7 +17,8 @@ const PAGE_ROWS = [
   { id: '298', created_at: '2026-03-01T00:00:00.000Z' },
 ];
 
-/** Last call to query() — always the SELECT page statement. */
+/** Last SELECT page statement issued — `find` would return an earlier
+ * invocation's SQL when a test calls getAuditLogs more than once. */
 const pageQuery = () => {
   const calls = mockQuery.mock.calls.filter(
     ([text]) => typeof text === 'string' && text.includes('SELECT * FROM audit_logs'),
@@ -57,7 +58,7 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
       // Filter conditions use $1, $2... so cursor params are $3, $4 (no filters in this test)
       expect(text).toMatch(/\(created_at, id\)\s*<\s*\(\$\d+, \$\d+\)/);
       // The cursor must be both parts, never just the id.
-      expect(values).toEqual(expect.arrayContaining(['2026-03-02T00:00:00.000Z', '298']));
+      expect(values).toEqual(expect.arrayContaining(['2026-03-02T00:00:00.000Z', '299']));
       expect(text).not.toMatch(/id\s*<\s*\$\d+\s*\n?\s*AND/);
     });
 
@@ -71,7 +72,9 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
       const result = await getAuditLogs({ limit: 2 });
 
       expect(result.nextCursor).not.toBeNull();
-      // The cursor carries the timestamp *and* the id it is paging from.
+      // The cursor carries the timestamp *and* the id it is paging from. The
+      // ISO timestamp itself contains ':', so parse it with decodeCursor
+      // rather than a naive split.
       expect(result.nextCursor).toContain(':');
       // Use decodeCursor to properly parse the composite cursor
       const { decodeCursor } = await import('../auditLogService.js');
@@ -171,6 +174,8 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
     });
 
     it('counts an unfiltered table as a single plain query', async () => {
+      // No cursor passed, so the page query carries no keyset predicate and
+      // the count SQL is a bare COUNT with no WHERE clause.
       await getAuditLogs({ withTotal: true, limit: 2 });
 
       const countSql = String(
