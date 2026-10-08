@@ -15,15 +15,18 @@ RemitLend treats remittance history as credit history. Migrant workers prove the
 ## ✨ Key Features
 
 ### For Borrowers
+
 - **Credit Building**: Convert your existing remittance history into an actionable credit score.
 - **Fair Rates**: Access loans with transparent, non-predatory interest rates.
 - **Self-Custody**: Maintain full control of your assets using Stellar wallets.
 
 ### For Lenders
+
 - **Transparent Yield**: Earn interest by providing liquidity to audited borrowing pools.
 - **Risk Assessment**: Make informed decisions based on verifiable, on-chain remittance proofs (Remittance NFTs).
 
 ### Technical Highlights
+
 - **NFT-Based Collateral**: Remittance NFTs serve as proof of reliability and loan collateral.
 - **Decentralized Lending Pools**: Lenders provide liquidity and earn transparent yields.
 - **Transparent & Auditable**: All transactions and loan terms recorded on-chain.
@@ -36,9 +39,9 @@ The repository is organized as a monorepo containing three core packages:
 - **`frontend/`**: Next.js web application providing the UI for both borrowers and lenders.
 - **`contracts/`**: Soroban (Rust) smart contracts covering the lending pools, loan management, and NFT collateral logic.
 
-*For a detailed look at how these components interact, see our [Architecture Diagram](ARCHITECTURE.md).*
-*New contributor? Start with the in-repo wiki: [docs/wiki/README.md](docs/wiki/README.md).*
-*Looking for deployed contract IDs? See [docs/deployed-contracts.md](docs/deployed-contracts.md).*
+_For a detailed look at how these components interact, see our [Architecture Diagram](ARCHITECTURE.md)._
+_New contributor? Start with the in-repo wiki: [docs/wiki/README.md](docs/wiki/README.md)._
+_Looking for deployed contract IDs? See [docs/deployed-contracts.md](docs/deployed-contracts.md)._
 
 ### API Reference
 
@@ -77,21 +80,26 @@ verification.
 ### Quick Start with Docker (Recommended)
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/LabsCrypt/remitlend.git
    cd remitlend
    ```
 
 2. **Configure environment:**
+
    ```bash
    cp backend/.env.example backend/.env
    ```
+
    Edit `backend/.env` if needed (defaults work for local development).
 
 3. **Start all services:**
+
    ```bash
    docker compose up --build
    ```
+
    Docker Compose uses healthchecks so services start cleanly:
    - PostgreSQL (`db`) is marked healthy via `pg_isready`
    - The backend waits for healthy Postgres before starting, runs `npm run migrate:up`, then starts the API
@@ -107,20 +115,25 @@ verification.
 #### Backend Setup
 
 1. **Navigate to backend directory:**
+
    ```bash
    cd backend
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Configure environment:**
+
    ```bash
    cp .env.example .env
    ```
+
    Update `.env` with your configuration (at minimum `DATABASE_URL` for PostgreSQL):
+
    ```env
    CORS_ALLOWED_ORIGINS=http://localhost:3000
    PORT=3001
@@ -129,12 +142,15 @@ verification.
    ```
 
 4. **Apply database migrations** (creates `scores`, `loan_events`, `indexer_state`, and other tables):
+
    ```bash
    npm run migrate:up
    ```
+
    Migration scripts use the colon form (`migrate:up` / `migrate:down`), which is the standard npm convention.
 
 5. **Run development server:**
+
    ```bash
    npm run dev
    ```
@@ -150,16 +166,19 @@ verification.
 #### Frontend Setup
 
 1. **Navigate to frontend directory:**
+
    ```bash
    cd frontend
    ```
 
 2. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 3. **Run development server:**
+
    ```bash
    npm run dev
    ```
@@ -176,26 +195,31 @@ verification.
 #### Smart Contracts Setup
 
 1. **Install Rust and wasm32 target:**
+
    ```bash
    rustup target add wasm32-unknown-unknown
    ```
 
 2. **Install Soroban CLI:**
+
    ```bash
    cargo install --locked soroban-cli
    ```
 
 3. **Navigate to contracts directory:**
+
    ```bash
    cd contracts
    ```
 
 4. **Build all contracts:**
+
    ```bash
    cargo build --target wasm32-unknown-unknown --release
    ```
 
 5. **Run tests:**
+
    ```bash
    cargo test
    ```
