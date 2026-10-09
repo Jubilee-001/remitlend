@@ -52,7 +52,7 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
 
     it('pages with a (created_at, id) row comparison, not id alone', async () => {
       // Provide a cursor so the keyset predicate is added
-      await getAuditLogs({ limit: 2, cursor: '2026-03-02T00:00:00.000Z:298' });
+      await getAuditLogs({ limit: 2, cursor: '2026-03-02T00:00:00.000Z:299' });
 
       const { text, values } = pageQuery();
       // Filter conditions use $1, $2... so cursor params are $3, $4 (no filters in this test)
