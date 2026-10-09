@@ -86,20 +86,25 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
       expect(bobKey).toContain(BOB);
     });
 
-    it("does not replay another wallet's cached response", async () => {
+    it('does not replay another wallet’s cached response', async () => {
       // Bob's response is already cached under his namespace…
+      const bobFingerprint = computeFingerprint(buildRequest(BOB) as Request).fingerprint;
+      const bobCacheKey = `idemp:${BOB}:shared-key`;
+
+      // Mock cacheService.get to return Bob's response ONLY for Bob's key
       asMock(cacheService.get).mockImplementation((key: string) => {
-        // Return cached response only for Bob's key
-        if (String(key).includes(BOB)) {
+        if (key === bobCacheKey) {
           return Promise.resolve({
             status: 201,
             body: { id: 'bob-loan' },
-            fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
+            fingerprint: bobFingerprint,
           });
         }
-        // Alice's key gets a cache miss
-        return Promise.resolve(null);
+        return Promise.resolve(null); // Alice's key -> cache miss
       });
+
+      // Save reference to original json mock before middleware overrides it
+      const jsonMock = asMock(res.json);
 
       // …so Alice sending the identical key, path and body gets a cache miss
       // and runs the handler instead of receiving Bob's response.
@@ -109,21 +114,20 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
       await idempotencyMiddleware(req as Request, res as Response, next);
 
       expect(cacheKeysRead()[0]).not.toContain('bob-loan');
-      // On cache miss, next() is called to run the handler (not res.json with cached response)
-      expect(next).toHaveBeenCalled();
+      expect(jsonMock).not.toHaveBeenCalledWith({ id: 'bob-loan' });
     });
 
     it('does not reject a user with 409 because another user holds the key', async () => {
       // Bob's in-flight lock is held under his namespace.
-      // Alice's setNotExists should succeed (return true) since it's a different key.
+      const bobLockKey = `idemp:${BOB}:shared-key:lock`;
+
       asMock(cacheService.get).mockResolvedValue(null);
+      // Mock setNotExists to return false ONLY for Bob's lock key
       asMock(cacheService.setNotExists).mockImplementation((key: string) => {
-        // Only fail (return false) for Bob's lock key
-        if (String(key).includes(BOB)) {
-          return Promise.resolve(false);
+        if (key === bobLockKey) {
+          return Promise.resolve(false); // Bob's lock is held
         }
-        // Alice acquires her own lock successfully
-        return Promise.resolve(true);
+        return Promise.resolve(true); // Alice can acquire lock
       });
 
       await idempotencyMiddleware(req as Request, res as Response, next);
