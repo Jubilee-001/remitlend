@@ -9,7 +9,7 @@ jest.unstable_mockModule('../../db/connection.js', () => ({
   query: mockQuery,
 }));
 
-const { getAuditLogs } = await import('../auditLogService.js');
+const { getAuditLogs, decodeCursor } = await import('../auditLogService.js');
 
 const PAGE_ROWS = [
   { id: '300', created_at: '2026-03-03T00:00:00.000Z' },
@@ -93,6 +93,9 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
 
     it('resumes correctly from a cursor it previously issued', async () => {
       const first = await getAuditLogs({ limit: 2 });
+
+      // Only inspect the query issued for the second (cursor) page.
+      mockQuery.mockClear();
       await getAuditLogs({ limit: 2, cursor: first.nextCursor });
 
       const { text, values } = pageQuery();
@@ -168,6 +171,8 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
     });
 
     it('counts an unfiltered table as a single plain query', async () => {
+      // No cursor passed, so the page query carries no keyset predicate and
+      // the count SQL is a bare COUNT with no WHERE clause.
       await getAuditLogs({ withTotal: true, limit: 2 });
 
       const countSql = String(

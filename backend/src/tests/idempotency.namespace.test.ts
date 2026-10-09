@@ -123,7 +123,10 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
         status: 201,
         body: { id: 'bob-loan' },
         fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
-      });
+      };
+      asMock(cacheService.get).mockImplementation((cacheKey: unknown) =>
+        Promise.resolve(String(cacheKey).includes(BOB) ? bobCached : null),
+      );
 
       // …so Alice sending the identical key, path and body gets a cache miss
       // and runs the handler instead of receiving Bob's response. On the
