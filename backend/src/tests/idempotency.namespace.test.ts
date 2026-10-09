@@ -123,7 +123,7 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
         status: 201,
         body: { id: 'bob-loan' },
         fingerprint: computeFingerprint(buildRequest(BOB) as Request).fingerprint,
-      };
+      });
       asMock(cacheService.get).mockImplementation((cacheKey: unknown) =>
         Promise.resolve(String(cacheKey).includes(BOB) ? bobCached : null),
       );
