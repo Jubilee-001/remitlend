@@ -108,7 +108,7 @@ describe('loan dispute resolution integration flow', () => {
 
     mockQuery
       .mockResolvedValueOnce(dbRows([{ address: TEST_PUBLIC_KEY }]))
-      .mockResolvedValueOnce(dbRows([{ loan_id: LOAN_ID }]))
+      .mockResolvedValueOnce(dbRows([{ loan_id: LOAN_ID, address: TEST_PUBLIC_KEY }]))
       .mockResolvedValueOnce(dbRows([{ id: DISPUTE_ID }]))
       .mockResolvedValueOnce(dbOk());
 
@@ -193,7 +193,7 @@ describe('loan dispute resolution integration flow', () => {
 
     mockQuery
       .mockResolvedValueOnce(dbRows([{ address: TEST_PUBLIC_KEY }]))
-      .mockResolvedValueOnce(dbRows([{ loan_id: LOAN_ID }]))
+      .mockResolvedValueOnce(dbRows([{ loan_id: LOAN_ID, address: TEST_PUBLIC_KEY }]))
       .mockResolvedValueOnce(dbRows([{ id: DISPUTE_ID }]))
       .mockResolvedValueOnce(dbOk());
 
