@@ -103,6 +103,9 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
 
       // …so Alice sending the identical key, path and body gets a cache miss
       // and runs the handler instead of receiving Bob's response.
+      // Capture the spy first: on a miss the middleware replaces res.json with
+      // its own wrapper, which would no longer be recognisable as a mock.
+      const jsonSpy = res.json;
       await idempotencyMiddleware(req as Request, res as Response, next);
 
       expect(cacheKeysRead()[0]).not.toContain('bob-loan');
