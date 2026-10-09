@@ -15,8 +15,6 @@ describe('Idempotency Middleware', () => {
   let res: Partial<Response>;
   let next: NextFunction;
 
-  const TEST_WALLET = 'GBD_TEST_WALLET';
-
   beforeEach(() => {
     req = {
       header: jest.fn() as unknown as Request['header'],
@@ -25,7 +23,6 @@ describe('Idempotency Middleware', () => {
       path: '/api/loans/request',
       baseUrl: '',
       body: { amount: 100, borrowerPublicKey: 'GBD' },
-      user: { publicKey: TEST_WALLET },
     };
     res = {
       status: jest.fn().mockReturnThis() as unknown as Response['status'],

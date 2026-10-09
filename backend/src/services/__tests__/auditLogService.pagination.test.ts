@@ -40,9 +40,7 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
       return Promise.resolve({ rows: [] });
     });
   });
-});
 
-describe('getAuditLogs keyset pagination and totals (#1808)', () => {
   describe('ordering matches the cursor', () => {
     it('orders by created_at then id, both descending', async () => {
       await getAuditLogs({ limit: 2 });

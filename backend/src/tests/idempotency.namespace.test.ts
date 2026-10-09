@@ -135,7 +135,6 @@ describe('idempotencyMiddleware key namespacing (#1809)', () => {
 
       // …so Alice sending the identical key, path and body gets a cache miss
       // and runs the handler instead of receiving Bob's response.
-      const jsonMock = asMock(res.json);
       await idempotencyMiddleware(req as Request, res as Response, next);
 
       expect(cacheKeysRead()[0]).not.toContain('bob-loan');
