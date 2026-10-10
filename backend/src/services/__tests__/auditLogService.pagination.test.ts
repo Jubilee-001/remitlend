@@ -1,4 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import type { AuditLogFilters } from '../auditLogService.js';
 
 const mockQuery = jest
   .fn<(...args: unknown[]) => Promise<{ rows: unknown[]; rowCount: number }>>()
@@ -7,6 +8,8 @@ const mockQuery = jest
 jest.unstable_mockModule('../../db/connection.js', () => ({
   query: mockQuery,
 }));
+
+const { getAuditLogs, decodeCursor } = await import('../auditLogService.js');
 
 const PAGE_ROWS = [
   { id: '300', created_at: '2026-03-03T00:00:00.000Z' },
@@ -73,8 +76,6 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
       // The cursor carries the timestamp *and* the id it is paging from. It
       // must split on the LAST ':' — ISO timestamps contain colons.
       expect(result.nextCursor).toContain(':');
-      // Use decodeCursor to properly parse the composite cursor
-      const { decodeCursor } = await import('../auditLogService.js');
       const decoded = decodeCursor(result.nextCursor);
       expect(decoded).not.toBeNull();
       expect(decoded!.createdAt).toMatch(/^2026-03-02T/);
