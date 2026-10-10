@@ -14,14 +14,14 @@ const PAGE_ROWS = [
   { id: '298', created_at: '2026-03-01T00:00:00.000Z' },
 ];
 
-const { getAuditLogs, decodeCursor, AuditLogFilters } = await import('../auditLogService.js');
-
-/** Last call to query() for the SELECT page statement (handles multiple pages). */
+/**
+ * Last call to query() — getAuditLogs issues the page SELECT after any COUNT,
+ * so the most recent call is always the page statement under test.
+ */
 const pageQuery = () => {
-  const calls = mockQuery.mock.calls.filter(
-    ([text]) => typeof text === 'string' && text.includes('SELECT * FROM audit_logs'),
-  );
-  const call = calls[calls.length - 1];
+  const call = [...mockQuery.mock.calls]
+    .reverse()
+    .find(([text]) => typeof text === 'string' && text.includes('SELECT * FROM audit_logs'));
   return { text: String(call?.[0]), values: (call?.[1] as unknown[]) ?? [] };
 };
 
@@ -70,9 +70,8 @@ describe('getAuditLogs keyset pagination and totals (#1808)', () => {
       const result = await getAuditLogs({ limit: 2 });
 
       expect(result.nextCursor).not.toBeNull();
-      // The cursor carries the timestamp *and* the id it is paging from. The
-      // ISO timestamp itself contains ':', so parse it with decodeCursor
-      // rather than a naive split.
+      // The cursor carries the timestamp *and* the id it is paging from. It
+      // must split on the LAST ':' — ISO timestamps contain colons.
       expect(result.nextCursor).toContain(':');
       // Use decodeCursor to properly parse the composite cursor
       const { decodeCursor } = await import('../auditLogService.js');
